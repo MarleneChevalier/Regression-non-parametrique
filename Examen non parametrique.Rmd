@@ -1,0 +1,331 @@
+---
+title: "Examen : Statistiques non paramétriques"
+author: "Marlène Chevalier"
+date: "16 septembre 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,  message=FALSE, warning=FALSE)
+```
+
+## Sujet 
+
+*On dispose de deux jeux de données (Xi,Yi)1≤i≤2000 où les Xi et les Yi sont des réalisations de variables aléatoires réelles admettant la représentation*
+*Yi = r(Xi) + σ(Xi)ξi, i = 1,...2000,*
+*où*  
+*— Les ξi sont indépendantes et identiquement distribuées, avec E[ξ1] = 0 et E[ξ2 1] = 1, et ont une densité µ.* 
+
+*— La fonction x → σ(x) est strictement positive. Si σ est constante on parle d’un modèle homoscédastique, sinon le modèle est dit hétéroscédastique.*   
+
+*— Les Xi sont indépendantes et identiquement distribuées de densité g : [0,10] →R+, et indépendantes des ξi.*   
+
+*— La fonction r : R→R vériﬁe |r(x)|≤ 1 pour tout x ∈ [0,10].*  
+
+*Les objectifs sont : *  
+
+*a. Reconstruire x → g(x) graphiquement et étudier si g est la densité uniforme ou non.*  
+*b. Reconstruire x → r(x) graphiquement.*  
+*c. Explorer les propriétés de x → µ(x) et x → σ(x). On dispose de deux jeux de données,*  
+
+*— Data1 : dont la première colonne correspond aux Xi et la seconde colonne correspond aux Yi. Dans ce jeu de données la variance des erreurs ne dépend pas de X.*  
+
+*— Data2 : dont la première colonne correspond aux Xi et la seconde colonne correspond aux Yi. Les diﬀérences avec les données Data1 sont la loi µ des erreurs ξ et le fait que σ non constante.*  
+
+*Ainsi on a les mêmes valeurs pour les Xi et la même fonction de régression r dans Data1 et Data2.*
+
+```{r chargement donnees}
+data1=read.csv("Data1.csv", header = TRUE, dec=".")
+data2=read.csv("Data2.csv", header = TRUE, dec=".")
+library(KernSmooth)
+library(stats)
+library(np)
+
+```
+
+## Nuage de points
+
+```{r nuage,echo=FALSE}
+par(mfrow = c(1, 2))
+plot(Y1~X,data=data1, main="data1 (homoscédastique)")
+plot(Y2~X,data=data2, main="data2 (hétéroscédastique)")
+```
+
+##1 Etude de la densité g des X
+*Pour cette partie on utilisera la première colonne des données Data1.*  
+
+**1.1.**
+*Construire un estimateur non-paramétrique gn,h(x) de g(x) pour une fenêtre de lissage h > 0 donnée*   
+*et représenter graphiquement x → gn,h(x) pour diﬀérentes valeurs de h que vous choisirez.*   
+*On discutera la raison pour laquelle ce choix est important et ce qui se produit si h est mal choisi.*   
+
+```{r crtest}
+attach(data1)
+h1=0.01
+h2=0.05
+h3=0.1
+h4=0.3
+h5=0.5
+h6=0.7
+
+#Histogrammes
+par(mfrow = c(1, 3))
+# nombre de rectangles de l'histogramme
+N1=floor((max(X)-min(X))/(2*h1))
+grid1=seq(min(X),max(X),length=N1)
+hist(X,probability = T,breaks=grid1,main="histogramme X (h=0.01)")
+
+N3=floor((max(X)-min(X))/(2*h3))
+grid3=seq(min(X),max(X),length=N3)
+hist(X,probability = T,breaks=grid3,main="histogramme X (h=0.1)")
+
+N5=floor((max(X)-min(X))/(2*h5))
+grid5=seq(min(X),max(X),length=N5)
+hist(X,probability = T,breaks=grid5,main="histogramme X (h=0.7)")
+
+par(mfrow = c(1, 1))
+ghat_h1=bkde(data1$X, kernel="normal", bandwidth=h1, truncate = TRUE)
+ghat_h2=bkde(data1$X, kernel="normal", bandwidth=h2, truncate = TRUE)
+ghat_h3=bkde(data1$X, kernel="normal", bandwidth=h3, truncate = TRUE)
+ghat_h4=bkde(data1$X, kernel="normal", bandwidth=h4, truncate = TRUE)
+ghat_h5=bkde(data1$X, kernel="normal", bandwidth=h5, truncate = TRUE)
+ghat_h6=bkde(data1$X, kernel="normal", bandwidth=h6, truncate = TRUE)
+plot(ghat_h1$x,ghat_h1$y,type="l", main="Estimation de gn,h(x) pour différentes valeurs de fenêtre", xlab="",ylab="")
+#lines(ghat_h2$x,ghat_h2$y,type="l",col="green")
+lines(ghat_h3$x,ghat_h3$y,type="l",col="blue")
+lines(ghat_h4$x,ghat_h4$y,type="l",col="red")
+lines(ghat_h5$x,ghat_h5$y,type="l",col="orange")
+#lines(ghat_h6$x,ghat_h6$y,type="l",col="yellow")
+#lines(ghat_h1$x,X,type="l",col="blue")
+legend(x="topright",legend=c("h=0.01", "h=0.1", "h=0.3", "h=0.5"),
+       col=c("black", "blue", "red", "orange"),cex = 1, pch="__")
+
+
+```
+
+La fenêtre de lissage h correspond  à la largeur de part et d'autre d'un point x0 [x0-h,x0+h]. A l'interieur de cet intervalle, si on "compte"" le nombre d'observations xi présentes, on obtient la fréquence des xi dans [x0-h,x0+h], c'est à dire une estimation de la dentité de x.
+
+**Choix de la fenêtre h** : 
+Graphiquement, on voit que plus la fenêtre (h) est grande, plus la fonction estimée est lissée : l'effet d'une forte concentration d'observations dans [x0-h,x0+h] sur le niveau de la densité sera affaibli par la largeur de l'intervalle (2h). Et inversement, une fenetre petite donne une fonction estimée très oscillante.   
+A partir du graphique ci dessus, il semble que le choix optimal pour h se trouve entre 0.01 et 0.3.
+Déterminons une valeur de fenetre par la methode de validation croisée.
+
+**1.2.** 
+*Représenter graphiquement x →  gn,h(x) estimé, où hn estimé est la fenêtre donnée par validation croisée ou par une autre méthode que l’on précisera.*
+
+```{r hvalidcr}
+attach(data1)
+h_vc=bw.ucv(X)
+resvc=bkde(X, kernel = "normal", bandwidth=h_vc, truncate = TRUE)
+plot(resvc$x,resvc$y,type="l", main="Estimation de gn,h(x) avec fenêtre calculée par validation croisée")
+
+```
+
+Fenêtre calculée par validation croisée : h_vc = `r h_vc`
+
+**1.3.** 
+*Implémenter un QQ-plot pour vériﬁer empiriquement l’hypothèse g(x) = 1/10 pour tout x ∈ [0,10]. L’hypothèse selon laquelle g est uniforme semble-t-elle raisonnable?*   
+
+```{r qqplot}
+Xunif=runif(2000,0,10)
+qqplot(Xunif,X, main="QQ-plot densité de X / loi uniforme [0,10]", xlab="quantile loi uniforme",ylab="quantile loi X")
+```
+ 
+Le qqplot compare la loi de X et la loi uniforme [0,10]. Ici la relation entre les 2 lois, représentée par la courbe duqqplot, n'est pas proche de la premiere bissectrice : il semble donc que g, la dentité de X, ne soit pas une loi uniforme [0,10].
+
+ 
+
+##2 Reconstruction de r(x)
+*Pour cette partie on utilisera les données Data1.*
+
+**2.1.** 
+*Est-il plausible de penser que la fonction r est linéaire? Tracer Y1 en fonction de log(X), que remarque-t-on?*   
+
+A la vue du nuage de point de (X,Y1), la relation r1 qui lie X à Y1 ne semble pas linéaire (points non répartis autour d'une droite).
+
+**graphe Y1=log(X)**
+
+```{r rlin}
+attach(data1)
+plot(Y1~log(X),main="Y1 en fonction log(X)" )
+
+```
+
+**2.2.** 
+*Construire un estimateur non-paramétrique rn,h(x) de r(x) pour une fenêtre de lissage h > 0 bien choisie et le représenter graphiquement.*  
+
+Construisons l'estimateur rn,h(x) de r(x) en utilisant la méthode des polynomes locaux et en calculant la fenêtre de lissage h par 2 méthodes : dpill et Silverman.
+
+```{r restim}
+attach(data1)
+GrapheR=function(X,Y){
+  n=length(X)
+  # ecart type de X
+  std=sqrt(var(X))
+  # 2 calculs de fenetre :
+  h_dpill=dpill(X,Y)
+  h_silver=1.06*std*n**(-1/(4+1))
+  print(paste0("Fenêtre de lissage par methode dpill : ",h_dpill))
+  print(paste0(" Fenêtre de lissage par methode de Silverman  : ", h_silver))
+
+  # estimateurs issus de polynomes locaux avec h calculé à partir de dpill
+  Y_pill2=locpoly(X,Y,drv=0,degree=2,kernel="normal",bandwidth=h_dpill)
+  # estimateurs issus de polynomes locaux avec h calculé par silverman
+  Y_silver=locpoly(X,Y,drv=0,degree=2,kernel="normal",bandwidth=h_silver)
+
+  plot(X,Y,pch=20,cex=0.01,xlab="X",ylab="Y",main="Estimateur non paramétrique de rn,h(x)")
+  #lines(Y_pill0$x,Y,col="black")
+  lines(Y_pill2,lty="dashed",col="blue")
+  lines(Y_silver,lty="dashed",col="red")
+  legend(x="topright",legend=c("h dpill", "h silver"),
+         col=c("blue","red"), cex = 1, pch="--")
+}
+
+#Visualisation
+GrapheR(X,Y1)
+
+```
+
+**2.3.** 
+*On se propose maintenant d’estimer r en régressant Y 1 sur log(X).*  
+*Construire un estimateur non-paramétriquee rn,h(x) de r(x) dans le modèle Y1 = r(log(X)) + ξ, pour une fenêtre de lissage h > 0 bien choisie.*   
+*Superposer sur le graphe de la question précédente l’estimateure rn,h*   
+
+```{r restimlog}
+attach(data1)
+GrapheR_log=function(X,Y){
+  n=length(X)
+  # ecart type de X
+  std=sqrt(var(X))
+  # 2 calculs de fenetre :
+  h_dpill_log=dpill(X,Y)
+  h_silver_log=1.06*std*n**(-1/(4+1))
+  print(paste0("Fenêtre de lissage par methode dpill : ",h_dpill_log))
+  print(paste0(" Fenêtre de lissage par methode de Silverman  : ", h_silver_log))
+
+  # estimateurs issus de polynomes locaux avec h calculé à partir de dpill
+  Y_pill2_log=locpoly(X,Y,drv=0,degree=2,kernel="normal",bandwidth=h_dpill_log)
+  # estimateurs issus de polynomes locaux avec h calculé par silverman
+  Y_silver_log=locpoly(X,Y,drv=0,degree=2,kernel="normal",bandwidth=h_silver_log)
+
+  plot(X,Y,pch=20,cex=0.01,xlab="log(X)",ylab="Y",main="Estimateur non paramétrique de rn,h(log(x))")
+  lines(Y_pill2_log,lty="dashed",col="blue")
+  lines(Y_silver_log,lty="dashed",col="red")
+  legend(x="topright",legend=c("h dpill ", "h silver"),
+         col=c("blue","red"), cex = 1, pch="--")
+}
+
+#Visualisation
+GrapheR_log(log(X),Y1)
+
+#Superposition
+h_dpill=dpill(X,Y1)
+Y_pill2=locpoly(X,Y1,drv=0,degree=2,kernel="normal",bandwidth=h_dpill)
+h_dpill_log=dpill(log(X),Y1)
+Y_pill2_log=locpoly(log(X),Y1,drv=0,degree=2,kernel="normal",bandwidth=h_dpill_log)
+
+plot(Y_pill2$x,Y_pill2$y,pch=20,cex=0.01,xlab="",ylab="r(X) et r(log(X)",main="Superposition des estimateurs de rn,h(x) et rn,h(log(x)", col="blue", xlim=c(min(Y_pill2_log$x),max(Y_pill2$x)), ylim=c(min(Y_pill2_log$y),max(Y_pill2$y)))
+  lines(Y_pill2_log$x,Y_pill2_log$y,lty="dashed",col="red")
+  legend(x="bottomright",legend=c("r(X)", "r(log(X))"),
+         col=c("blue","red"), cex = 1, pch="--")
+
+
+```
+
+**2.4.** 
+*Que remarque-t-on? Comment peut-on l’expliquer?*  
+
+L'estimation sur log(X) est plus lissée que sur X. En effet, x->log(x) croit moins vite que x->x.
+
+##3 Etude de la densité µ des ξi  
+
+**3.1** *A partir du jeu de données Data1*    
+
+**3.1.1.** *On cherche à estimer x → µ(x).*   
+*Pour cela, on coupe l’échantillon en deux, selon que i ∈J− = {1,...,1000} ou que i ∈J+ = {1001,...,2000}.*   
+*On note r(−) n,h(x) (pour un choix de h établi à la question 2.2) l’estimateur construit à l’aide de (Xi,Yi)1≤i≤1000 et on pose  ξi = Yi − r(−) n,h(Xi), i ∈J+.*   
+*Quelle est la distribution approximative de ξi ?*  
+
+Construisons les échantillons 1 (les 1000 premières lignes) et 2 (de la 1001ème à la 2000 ème lignes) de data1. Construisons, sur les 1000 premières lignes de data1, l'estimateur rn,h(x) de r(x) en utilisant la méthode des polynomes locaux et en reprenant la fenêtre de lissage hdpill (2.2).
+Et calculons l'erreur, epsilon t.q :   
+epsilon= Y1 (echantillon2 de data1)- estimateur rn,h(x) (calculé sur échantillon 2 de data1)
+
+```{r distriberr}
+d1_ech1=data1[1:1000,]
+d1_ech2=data1[1001:2000,]
+
+h_dpill=dpill(X,Y1)
+# estimateur issu de polynomes locaux avec h calculé à partir de dpill
+  Y_pill_de1=locpoly(d1_ech1$X,d1_ech1$Y1,drv=0,degree=2,kernel="normal",bandwidth=h_dpill)
+  eps_d1=(d1_ech2$Y1[order(d1_ech2$X)]-Y_pill_de1$y)
+  hist(eps_d1,probability=T,breaks=50,main="Distribution approximative de epsilon", xlab="",xlim=c(min(eps_d1),max(eps_d1)),ylim=c(0,1.5))
+
+
+```
+
+La fenêtre h  choisie à la question (2.2) est `r h_dpill`.
+
+**3.1.2.** *En déduire un estimateur de x → µ(x) et l’implémenter graphiquement.*   
+
+```{r esteps}
+epsvc=bkde(eps_d1, kernel = "normal", bandwidth=h_dpill, truncate = TRUE)
+plot(epsvc$x,epsvc$y,type="l", ylab="densité de epsilon", xlab="epsilon", main="Estimation de la densité des erreurs ")
+
+```
+
+**3.1.3.** *(Facultatif.) Quel est l’intérêt d’avoir découpé le jeu de données selon J+ et J−?*   
+Couper un jeu de données en 2 échantillons permet de construire le modèle sur un echantillon et de le tester sur un autre. Ainsi le test de validation du modèle ne dépend pas des données qui ont servi à le construire.
+
+
+**3.1.4.** *La densité x → µ(x) peut-elle être gaussienne?*   
+*Proposer un protocole pour le vériﬁer empiriquement et l’implémenter.*   
+
+Pour tester la normalité des erreurs, on peut tracer graphique quantile-quantile (qqplot) de la loi normale versus la dentité estimée des erreurs : il affiche la densité de epsilon (erreurs) . Si celle-ci est proche de la première bissectrice (densité loi normale), celle empiriquement que les erreurs sont gaussiennes.
+
+```{r epsqqnorm}
+
+qqnorm(epsvc$y,datax=TRUE)
+qqline(epsvc$y,datax=TRUE)
+
+```
+
+La représentation graphique de la relation entre les 2 lois n'est pas proche de la premiere bissectrice : il semble donc que mu, la dentité de epsilon, ne soit pas une loi normale.
+
+**3.1.5.** *(Facultatif.) Comment peut-on tester si le modèle est bien homoscédastique?*  
+
+**3.2** *A partir du jeu de données Data2.* 
+*On cherche à estimer x → µ(x) et x → σ(x).*   
+*Pour cela, on coupe à nouveau l’échantillon en deux et on considère à nouveaue ξi.*  
+
+**3.2.1.** *Justiﬁer qu’en régressant ξ2 i sur Xi on obtient un estimateur de x → σ2(x).   L’implémenter et le visualiser graphiquement.*   
+*En comparant avec le jeu de données (Figure 1 à droite), retrouve-t-on un résultat attendu?*  
+
+```{r distriberrd2}
+attach(data2)
+d2_ech1=data2[1:1000,]
+d2_ech2=data2[1001:2000,]
+
+h_dpill_d2=dpill(d2_ech1$X,d2_ech1$Y2)
+# estimateur issu de polynomes locaux avec h calculé à partir de dpill
+Y_pill_de2=locpoly(d2_ech1$X,d2_ech1$Y1,drv=0,degree=2,kernel="normal",bandwidth=h_dpill_d2)
+eps_de2=(d2_ech2$Y2[order(d2_ech2$X)]-Y_pill_de2$y)
+
+hist(eps_de2,probability=T,breaks=50,main="Distribution approximative des erreurs (données data2)", xlab="",xlim=c(min(eps_de2),max(eps_de2)),ylim=c(0,1.5))
+
+epsvc_d2=bkde(eps_de2, kernel = "normal", bandwidth=h_dpill_d2, truncate = TRUE)
+plot(epsvc_d2$x,epsvc_d2$y,type="l", ylab="densité epsilon",xlab="epsilon", main="Estimation de la densité des erreurs (data2)")
+```
+
+**3.2.2.** *La densité x → µ(x) peut-elle être gaussienne?*   
+*Proposer un protocole pour le vériﬁer empiriquement et l’implémenter.*   
+*On pourra penser à renormaliser e ξi par la fonction estimée à la question précédente et s’aider des questions de la Section 3.1.*
+
+La vérification empirique pour tester un densité par rapport à une loi normale est le graphique quantile-quantile par rapport à la loi normale (qqnorm)
+
+```{r epsqqnormd2}
+qqnorm(epsvc_d2$y,datax=TRUE)
+qqline(epsvc_d2$y,datax=TRUE)
+```
+
